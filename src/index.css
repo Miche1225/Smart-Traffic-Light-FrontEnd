@@ -86,8 +86,16 @@ body {
   @apply bg-slate-950 text-slate-200 antialiased;
   font-family: 'Public Sans', system-ui, sans-serif;
 }
-/* Dark mode: deep blue-grey with a soft lift at the top, so it isn't flat black. */
-:root:not(.light) body { background: linear-gradient(180deg, #111c30 0%, #0b1220 420px) fixed; }
+/* App-wide backdrop: an even dot grid that fades toward the edges. Fixed at z-index -1, behind every page. */
+:root { --bg-base: #0b1220; --bg-dot: rgb(148 163 184 / 0.22); }
+:root.light { --bg-base: #f4f7fb; --bg-dot: rgb(16 32 61 / 0.18); }
+body { background: var(--bg-base); }
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-image: radial-gradient(var(--bg-dot) 1px, transparent 1.5px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse at 50% 40%, #000 30%, transparent 85%);
+}
 ::selection { @apply bg-sky-500/30 text-white; }
 
 * { scrollbar-width: thin; scrollbar-color: var(--color-slate-700) transparent; }
