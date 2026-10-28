@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { CameraManager } from '../components/CameraManager';
 import { btn, btnPrimary, Card, PageTitle } from '../components/ui';
+import { UserManager } from '../components/UserManager';
 import { connectArduino, serialSupported } from '../services/arduino';
 import { pushToast } from '../store/live';
 
@@ -35,17 +37,13 @@ function ArduinoCard() {
   );
 }
 
-// shortcut: Settings CRUD (intersections, cameras, sensors, speed limits, timing, detection, users, retention) is the next build pass.
 export default function Settings() {
   return (
     <div className="space-y-4">
-      <PageTitle title="Settings" sub="Connect the Arduino and manage the system." />
+      <PageTitle title="Settings" sub="Cameras, user accounts and the Arduino connection." />
+      <CameraManager />
+      <UserManager />
       <ArduinoCard />
-      <Card>
-        <p className="text-sm text-slate-400">
-          Configuration for intersections, cameras, sensors, speed limits, signal timing, detection, users and data retention is coming in the next build pass.
-        </p>
-      </Card>
     </div>
   );
 }

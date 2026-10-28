@@ -6,12 +6,18 @@ const ROLES: [prefix: string, roles: string[]][] = [
   ['/violations', ['ADMIN', 'OPERATOR']],
   ['/settings', ['ADMIN']],
 ];
+// Pages anyone can open without signing in.
+const PUBLIC = ['/login', '/register', '/home'];
 
-/** Signed-out users go to /login, roles that can't use a page go to the dashboard. The API still enforces auth. */
+/**
+ * `/` is the dashboard for signed-in users and the landing page (/home) for visitors.
+ * Signed-out users are sent to /login, roles that can't use a page go to the dashboard. The API still enforces auth.
+ */
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
-  if (pathname === '/login') return NextResponse.next();
   const role = req.cookies.get('stl-role')?.value;
+  if (pathname === '/') return role ? NextResponse.next() : NextResponse.rewrite(new URL('/home', req.url));
+  if (PUBLIC.includes(pathname)) return NextResponse.next();
   if (!role) {
     const url = new URL('/login', req.url);
     url.searchParams.set('from', pathname + search);

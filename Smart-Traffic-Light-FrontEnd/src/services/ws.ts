@@ -1,8 +1,13 @@
 import { laneKey, pushToast, useLive } from '../store/live';
-import type { WsEvent } from '../types';
+import type { Camera, DashboardKpi, WsEvent } from '../types';
+import { api } from './api';
+import { startCameraSim } from './cameraSim';
 import { qc } from './queryClient';
 
-export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
+/** NEXT_PUBLIC_USE_MOCKS=true runs the whole UI on in-browser fake data (no backend). Default: the real Express + MySQL API. */
+export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === 'true';
+/** NEXT_PUBLIC_LIVE_WS=true connects to a WebSocket server at /ws (for a later live-feed service). */
+const LIVE_WS = process.env.NEXT_PUBLIC_LIVE_WS === 'true';
 
 /** Intersections a connected Arduino is driving; the mock feed skips them so the two don't fight. */
 export const arduinoOwned = new Set<string>();
@@ -57,6 +62,8 @@ export function connectLive(token: string) {
     return () => { dead = true; off?.(); };
   }
 
+  if (!LIVE_WS) return connectPolling();
+
   let retry = 0;
   let timer = 0;
   let stopped = false;
@@ -83,4 +90,34 @@ export function connectLive(token: string) {
     socket?.close();
     socket = null;
   };
+}
+
+/**
+ * Real-API mode without a WebSocket server: every 10 s check the API is up and refresh the headline numbers
+ * (the top bar turns "Offline" and shows the reconnecting banner if the backend stops answering).
+ * Camera boxes in the Live View come from the on-screen simulation in cameraSim.ts.
+ */
+function connectPolling() {
+  let stopped = false;
+  let cams: Pick<Camera, 'id' | 'status'>[] = [];
+  let tick = 0;
+  const poll = async () => {
+    try {
+      const health = await fetch('/api/v1/health');
+      if (!health.ok) throw new Error('API down');
+      if (stopped) return;
+      useLive.setState({ ws: 'open', kpi: await api<DashboardKpi>('/dashboard/summary') });
+      cams = await api<Camera[]>('/cameras');
+      if (tick++ % 2 === 1) {
+        qc.invalidateQueries({ queryKey: ['alerts'] });
+        qc.invalidateQueries({ queryKey: ['violations'] });
+      }
+    } catch {
+      if (!stopped) useLive.setState({ ws: 'reconnecting' });
+    }
+  };
+  poll();
+  const timer = setInterval(poll, 10_000);
+  const stopSim = startCameraSim(() => cams, handleEvent);
+  return () => { stopped = true; clearInterval(timer); stopSim(); };
 }

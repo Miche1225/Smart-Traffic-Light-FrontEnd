@@ -1,6 +1,7 @@
-import { CheckCheck } from 'lucide-react';
+import { CheckCheck, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Async, btn, Card, cx, input, PageTitle, SeverityBadge, title } from '../components/ui';
+import { AlertDialog } from '../components/AlertDialog';
+import { Async, btn, btnPrimary, Card, cx, input, PageTitle, SeverityBadge, title, useConfirm } from '../components/ui';
 import { api, useAlerts, useIntersections } from '../services/api';
 import { qc } from '../services/queryClient';
 import { OPS, useCan } from '../store/auth';
@@ -16,6 +17,8 @@ export default function Alerts() {
   const ints = useIntersections();
   const canAck = useCan(OPS);
   const [f, setF] = useState({ type: '', severity: '', intersectionId: '', ack: '' });
+  const [editing, setEditing] = useState<Alert | 'new' | null>(null);
+  const [confirm, dialog] = useConfirm();
   const q = useAlerts(f);
   const nameOf = (id?: string) => ints.data?.find((i) => i.id === id)?.name;
 
@@ -25,6 +28,19 @@ export default function Alerts() {
     if (failed) pushToast('error', `${failed} of ${list.length} acknowledgements failed`);
     qc.invalidateQueries({ queryKey: ['alerts'] });
   }
+
+  const remove = (a: Alert) =>
+    confirm({
+      title: `Delete alert ${a.id}?`, body: a.message, danger: true, confirmLabel: 'Delete',
+      onConfirm: async () => {
+        try {
+          await api(`/alerts/${a.id}`, { method: 'DELETE' });
+          qc.invalidateQueries({ queryKey: ['alerts'] });
+        } catch (e) {
+          pushToast('error', (e as Error).message);
+        }
+      },
+    });
 
   const select = (k: keyof typeof f, label: string, options: { value: string; label: string }[]) => (
     <select aria-label={label} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} className={input}>
@@ -36,8 +52,11 @@ export default function Alerts() {
 
   return (
     <div className="space-y-4">
+      {dialog}
+      {editing && <AlertDialog editing={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
       <div className="flex flex-wrap items-center gap-2">
         <PageTitle title="Alert center" sub="Camera, sensor and traffic problems that need someone to check them." />
+        {canAck && <button className={btnPrimary} onClick={() => setEditing('new')}><Plus className="size-4" />New alert</button>}
         {canAck && <button className={btn} disabled={!unacked.length} onClick={() => ack(unacked)}><CheckCheck className="size-4" />Acknowledge all ({unacked.length})</button>}
       </div>
       <Card>
@@ -62,6 +81,12 @@ export default function Alerts() {
                   {a.acknowledged ? <span className="ml-auto text-right text-xs text-slate-500 sm:ml-0 sm:w-24">Acknowledged</span>
                     : canAck ? <button className={cx(btn, 'ml-auto sm:ml-0 sm:w-24')} onClick={() => ack([a])}>Acknowledge</button>
                       : <span className="sm:w-24" />}
+                  {canAck && (
+                    <span className="flex gap-1">
+                      <button className={btn} aria-label={`Edit alert ${a.id}`} title="Edit" onClick={() => setEditing(a)}><Pencil className="size-4" /></button>
+                      <button className={cx(btn, 'text-red-300')} aria-label={`Delete alert ${a.id}`} title="Delete" onClick={() => remove(a)}><Trash2 className="size-4" /></button>
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

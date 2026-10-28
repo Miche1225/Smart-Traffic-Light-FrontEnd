@@ -159,6 +159,8 @@ export interface WeeklyReport {
 
 export type Role = 'ADMIN' | 'OPERATOR' | 'VIEWER';
 export interface User { id: string; username: string; name: string; role: Role }
+/** A user as listed for administrators. */
+export interface UserAccount extends User { createdAt: string }
 
 export interface Paginated<T> { data: T[]; page: number; size: number; total: number }
 

@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileText, Plus } from 'lucide-react';
 import { useState } from 'react';
-import { Async, btn, Card, cx, input, PageTitle, title } from '../components/ui';
+import { Async, btn, btnPrimary, Card, cx, input, PageTitle, title } from '../components/ui';
+import { ViolationDialog } from '../components/ViolationDialog';
 import { ViolationTable } from '../components/ViolationTable';
 import { api, qs, useIntersections } from '../services/api';
 import { qc } from '../services/queryClient';
@@ -22,6 +23,7 @@ export default function Violations() {
   const [f, setF] = useState({ from: addDays(today, -7), to: today, intersectionId: '', type: '', status: '', minSpeed: '', maxSpeed: '' });
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [adding, setAdding] = useState(false);
   const q = useQuery({ queryKey: ['violations', f, page], queryFn: () => api<Paginated<Violation>>(`/violations${qs({ ...f, page, size: SIZE })}`) });
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value }); setPage(1); };
   const pages = Math.max(1, Math.ceil((q.data?.total ?? 0) / SIZE));
@@ -51,8 +53,10 @@ export default function Violations() {
 
   return (
     <div className="space-y-4">
+      {adding && <ViolationDialog onClose={() => setAdding(false)} />}
       <div className="flex flex-wrap items-center gap-2">
         <PageTitle title="Over-speeding violations" sub="Vehicles caught above the speed limit. Open one to see the photos and review it." />
+        <button className={btnPrimary} onClick={() => setAdding(true)}><Plus className="size-4" />Record violation</button>
         <button className={btn} onClick={() => exportAll('csv')}><Download className="size-4" />CSV</button>
         <button className={btn} onClick={() => exportAll('pdf')}><FileText className="size-4" />PDF</button>
       </div>

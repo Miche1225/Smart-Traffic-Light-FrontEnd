@@ -12,7 +12,13 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
     body: init.json !== undefined ? JSON.stringify(init.json) : init.body,
   });
   if (res.status === 401 && token) useAuth.getState().logout();
-  if (!res.ok) throw new Error((await res.json().catch(() => null))?.message ?? `Request failed (${res.status})`);
+  if (!res.ok) {
+    const message = (await res.json().catch(() => null))?.message;
+    if (message) throw new Error(message);
+    // No JSON message means the answer did not come from our API (the dev server's own 404 page, a proxy error, or an old backend).
+    const hint = res.status === 404 ? ' - the API has no such route. Restart "npm run backend" and "npm run dev".' : res.status >= 500 ? ' - is "npm run backend" running?' : '';
+    throw new Error(`Request failed (${res.status}) for ${(init.method ?? 'GET').toUpperCase()} ${BASE}${path}${hint}`);
+  }
   return res.json();
 }
 

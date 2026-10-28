@@ -1,0 +1,14 @@
+node_modules
+dist
+*.local
+.next
+next-env.d.ts
+*.tsbuildinfo
+
+# secrets and local database files
+.env
+backend/.env
+backend/data/
+*.db
+*.db-shm
+*.db-wal

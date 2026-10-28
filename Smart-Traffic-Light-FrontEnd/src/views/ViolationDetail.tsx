@@ -1,12 +1,12 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Download, Trash2 } from 'lucide-react';
 import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Async, btn, btnDanger, btnPrimary, Card, cx, input, useConfirm, ViolationStatusBadge } from '../components/ui';
 import { api } from '../services/api';
 import { qc } from '../services/queryClient';
-import { useAuth } from '../store/auth';
+import { ADMIN, useAuth, useCan } from '../store/auth';
 import { pushToast } from '../store/live';
 import type { Violation } from '../types';
 import { APPROACH_LABEL, downloadUrl, fmtDateTime, toPng } from '../utils/format';
@@ -48,6 +48,8 @@ function Evidence({ frames }: { frames: string[] }) {
 export default function ViolationDetail() {
   const id = useParams<{ id: string }>().id;
   const user = useAuth((s) => s.user);
+  const isAdmin = useCan(ADMIN);
+  const router = useRouter();
   const q = useQuery({ queryKey: ['violation', id], queryFn: () => api<Violation>(`/violations/${id}`) });
   const [plate, setPlate] = useState('');
   const [notes, setNotes] = useState('');
@@ -63,6 +65,18 @@ export default function ViolationDetail() {
     },
     onError: (e) => pushToast('error', e.message),
   });
+
+  async function remove() {
+    try {
+      await api(`/violations/${id}`, { method: 'DELETE' });
+      pushToast('success', `Violation ${id} deleted`);
+      qc.invalidateQueries({ queryKey: ['violations'] });
+      qc.invalidateQueries({ queryKey: ['kpi'] });
+      router.replace('/violations');
+    } catch (e) {
+      pushToast('error', (e as Error).message);
+    }
+  }
 
   async function downloadEvidence(v: Violation) {
     try {
@@ -137,6 +151,12 @@ export default function ViolationDetail() {
                       <button className={btn} disabled={v.status !== 'VERIFIED' || m.isPending} title={v.status !== 'VERIFIED' ? 'Verify first' : undefined}
                         onClick={() => confirm({ title: 'Mark as issued', body: 'Records that a citation was issued.', onConfirm: () => m.mutate({ status: 'ISSUED' }) })}>Mark as Issued</button>
                       <button className={btn} onClick={() => downloadEvidence(v)}><Download className="size-4" />Evidence</button>
+                      {isAdmin && (
+                        <button className={cx(btn, 'text-red-300')}
+                          onClick={() => confirm({ title: `Delete ${v.id}?`, body: 'Removes the record, its photos and audit trail for good.', danger: true, confirmLabel: 'Delete', onConfirm: remove })}>
+                          <Trash2 className="size-4" />Delete
+                        </button>
+                      )}
                     </div>
                   </Card>
                 </div>
